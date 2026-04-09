@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/services/api_service.dart';
 import 'history_model.dart';
+import 'api_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -19,32 +19,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
     loadFromServer();
   }
 
-  // Hàm gọi API từ Laravel
   Future<void> loadFromServer() async {
+    if (!mounted) return;
     setState(() {
       isLoading = true;
     });
 
     try {
-      ApiService api = ApiService();
-      // Gọi hàm lấy dữ liệu từ Server
-      List<dynamic> data = await api.fetchHistory();
+      final api = ApiService();
+      final List<dynamic>? data = await api.fetchHistory();
 
-      setState(() {
-        history = data.map((e) => GameHistory.fromJson(e)).toList();
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
-      print("Lỗi tải data: $e");
-
-      // Hiển thị thông báo lỗi cho người dùng
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Không thể tải dữ liệu từ server")),
-        );
+        setState(() {
+          if (data != null) {
+            history = data.map((e) => GameHistory.fromJson(e)).toList();
+            // Sắp xếp lịch sử theo ngày giảm dần (mới nhất trước)
+            history.sort((a, b) => b.date.compareTo(a.date));
+          }
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Lỗi kết nối Server: $e")));
       }
     }
   }
@@ -53,35 +55,55 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Server History"),
+        title: const Text("Lịch sử từ Server"),
+        elevation: 2,
         actions: [
-          // Nút làm mới dữ liệu
           IconButton(
-            onPressed: loadFromServer,
+            onPressed: isLoading ? null : loadFromServer,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : history.isEmpty
-          ? const Center(child: Text("No history on server"))
-          : ListView.builder(
-              itemCount: history.length,
-              itemBuilder: (_, i) {
-                final h = history[i];
-                return ListTile(
-                  leading: const Icon(Icons.cloud_done, color: Colors.blue),
-                  title: Text("Level: ${h.level}"),
-                  subtitle: Text("Time: ${h.time}s"),
-                  // Cắt chuỗi ngày tháng để hiển thị gọn hơn (YYYY-MM-DD)
-                  trailing: Text(
-                    h.date.toString().length > 10
-                        ? h.date.toString().substring(0, 10)
-                        : h.date.toString(),
-                  ),
-                );
-              },
+          : RefreshIndicator(
+              onRefresh: loadFromServer,
+              child: history.isEmpty
+                  ? const Center(child: Text("Chưa có lịch sử trên server"))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: history.length,
+                      separatorBuilder: (context, index) => const Divider(),
+                      itemBuilder: (context, i) {
+                        final h = history[i];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue.shade100,
+                            child: const Icon(
+                              Icons.history,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          title: Text(
+                            "Cấp độ: ${h.level}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text("Thời gian: ${h.time} giây"),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Icon(
+                                Icons.calendar_today,
+                                size: 14,
+                                color: Colors.grey,
+                              ),
+                              Text(h.date.toString().split(' ')[0]),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
     );
   }

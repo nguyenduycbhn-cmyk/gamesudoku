@@ -1,53 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:async';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/api_service.dart';
 
-// 1. LỚP DỮ LIỆU LỊCH SỬ (Khắc phục lỗi GameHistory undefined)
-class GameHistory {
-  final String level;
-  final String time;
-  final String date;
-
-  GameHistory({required this.level, required this.time, required this.date});
-
-  factory GameHistory.fromJson(Map<String, dynamic> json) {
-    return GameHistory(
-      level: json['difficulty']?.toString() ?? "Easy",
-      time: json['time_spent']?.toString() ?? "0",
-      date: json['created_at']?.toString() ?? "",
-    );
-  }
-}
-
-// 2. LỚP DỊCH VỤ API (Khắc phục lỗi ApiService undefined)
-class ApiService {
-  Future<List<dynamic>> fetchHistory() async {
-    // Giả lập gọi API, bạn sẽ thay bằng http.get thực tế sau
-    return [];
-  }
-
-  Future<void> saveGameResult({
-    required String difficulty,
-    required int timeSpent,
-  }) async {
-    // Giả lập POST dữ liệu lên Laravel
-    print("Saving to server: $difficulty - $timeSpent seconds");
-  }
-}
-
-// 3. WIDGET MÀN HÌNH GAME (Khắc phục lỗi GameScreen isn't a type)
 class GameScreen extends StatefulWidget {
   final String level;
-  GameScreen({required this.level});
+  const GameScreen({super.key, required this.level});
 
   @override
   _GameScreenState createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  // --- KHAI BÁO CÁC BIẾN TRẠNG THÁI ---
   List<List<int>> board = List.generate(9, (_) => List.filled(9, 0));
   List<List<int>> solution = List.generate(9, (_) => List.filled(9, 0));
   List<List<bool>> fixed = List.generate(9, (_) => List.filled(9, false));
@@ -56,7 +20,8 @@ class _GameScreenState extends State<GameScreen> {
   int selectedCol = -1;
   int seconds = 0;
   Timer? timer;
-  List<GameHistory> history = [];
+  bool isWon = false;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -71,27 +36,41 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  // --- CÁC HÀM LOGIC ---
   void startTimer() {
     timer?.cancel();
-    timer = Timer.periodic(Duration(seconds: 1), (_) {
-      if (mounted) setState(() => seconds++);
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && !isWon) setState(() => seconds++);
     });
   }
 
-  String formatTime() {
-    int m = seconds ~/ 60;
-    int s = seconds % 60;
-    return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
-  }
-
-  // Khắc phục lỗi generateFullBoard undefined
-  List<List<int>> generateFullBoard() {
+  void generateGame() {
     List<List<int>> grid = List.generate(9, (_) => List.filled(9, 0));
     solve(grid);
-    return grid;
+    solution = grid.map((row) => [...row]).toList();
+
+    int removeCount = (widget.level == "easy")
+        ? 20
+        : (widget.level == "medium" ? 40 : 60);
+    Random rand = Random();
+    int count = 0;
+    while (count < removeCount) {
+      int r = rand.nextInt(9);
+      int c = rand.nextInt(9);
+      if (grid[r][c] != 0) {
+        grid[r][c] = 0;
+        count++;
+      }
+    }
+
+    setState(() {
+      board = grid;
+      fixed = List.generate(9, (r) => List.generate(9, (c) => grid[r][c] != 0));
+      seconds = 0;
+      isWon = false;
+    });
   }
 
+  // Thuật toán kiểm tra hợp lệ và giải Sudoku
   bool solve(List<List<int>> grid) {
     for (int r = 0; r < 9; r++) {
       for (int c = 0; c < 9; c++) {
@@ -112,127 +91,82 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool isValid(List<List<int>> g, int r, int c, int num) {
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 9; i++)
       if (g[r][i] == num || g[i][c] == num) return false;
-    }
-    int sr = (r ~/ 3) * 3;
-    int sc = (c ~/ 3) * 3;
+    int sr = (r ~/ 3) * 3, sc = (c ~/ 3) * 3;
     for (int i = sr; i < sr + 3; i++) {
-      for (int j = sc; j < sc + 3; j++) {
-        if (g[i][j] == num) return false;
-      }
+      for (int j = sc; j < sc + 3; j++) if (g[i][j] == num) return false;
     }
     return true;
   }
 
-  void generateGame() {
-    List<List<int>> newBoard = generateFullBoard();
-    solution = newBoard.map((row) => [...row]).toList();
-
-    int removeCount;
-    switch (widget.level.toLowerCase()) {
-      case "easy":
-        removeCount = 20;
-        break;
-      case "medium":
-        removeCount = 40;
-        break;
-      case "hard":
-        removeCount = 60;
-        break;
-      default:
-        removeCount = 40;
-    }
-
-    Random rand = Random();
-    int count = 0;
-    while (count < removeCount) {
-      int r = rand.nextInt(9);
-      int c = rand.nextInt(9);
-      if (newBoard[r][c] != 0) {
-        newBoard[r][c] = 0;
-        count++;
+  void checkWin() async {
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        if (board[r][c] != solution[r][c]) return;
       }
     }
 
-    setState(() {
-      board = newBoard;
-      fixed = List.generate(
-        9,
-        (r) => List.generate(9, (c) => newBoard[r][c] != 0),
-      );
-      seconds = 0;
-    });
-  }
+    // Nếu thắng
+    setState(() => isWon = true);
+    timer?.cancel();
 
-  void selectCell(int r, int c) {
-    setState(() {
-      selectedRow = r;
-      selectedCol = c;
-    });
-  }
-
-  void inputNumber(int num) {
-    if (selectedRow == -1 || fixed[selectedRow][selectedCol]) return;
-    setState(() {
-      board[selectedRow][selectedCol] = num;
-    });
-    // Thêm hàm checkWin() của bạn ở đây nếu cần
-  }
-
-  void saveHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> localHistory = prefs.getStringList('history') ?? [];
-    localHistory.add(
-      jsonEncode({
-        "level": widget.level,
-        "time": formatTime(),
-        "date": DateTime.now().toString(),
-      }),
+    bool saved = await _apiService.saveGameResult(
+      difficulty: widget.level,
+      timeSpent: seconds,
     );
-    await prefs.setStringList('history', localHistory);
 
-    try {
-      ApiService api = ApiService();
-      await api.saveGameResult(difficulty: widget.level, timeSpent: seconds);
-    } catch (e) {
-      print("API Error: $e");
-    }
-  }
-
-  // --- GIAO DIỆN (Khắc phục lỗi Missing State.build) ---
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Sudoku - ${widget.level}"),
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Chúc mừng!"),
+        content: Text(
+          "Bạn đã thắng trong $seconds giây.\n${saved ? 'Đã lưu kết quả.' : 'Lỗi lưu server.'}",
+        ),
         actions: [
-          Center(
-            child: Padding(
-              padding: EdgeInsets.all(10),
-              child: Text(formatTime()),
-            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
           ),
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Sudoku: ${widget.level.toUpperCase()}")),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              "Thời gian: $seconds giây",
+              style: const TextStyle(fontSize: 20),
+            ),
+          ),
+          // Vẽ bảng Sudoku (Tối giản để bạn dễ tích hợp UI)
           Expanded(
             child: GridView.builder(
-              itemCount: 81,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 9,
               ),
-              itemBuilder: (_, i) {
-                int r = i ~/ 9;
-                int c = i % 9;
+              itemCount: 81,
+              itemBuilder: (context, index) {
+                int r = index ~/ 9;
+                int c = index % 9;
                 return GestureDetector(
-                  onTap: () => selectCell(r, c),
+                  onTap: () => setState(() {
+                    selectedRow = r;
+                    selectedCol = c;
+                  }),
                   child: Container(
                     decoration: BoxDecoration(
-                      border: Border.all(width: 0.5),
+                      border: Border.all(color: Colors.black12),
                       color: (selectedRow == r && selectedCol == c)
-                          ? Colors.blue[100]
+                          ? Colors.blue.shade100
                           : Colors.white,
                     ),
                     child: Center(
@@ -242,6 +176,7 @@ class _GameScreenState extends State<GameScreen> {
                           fontWeight: fixed[r][c]
                               ? FontWeight.bold
                               : FontWeight.normal,
+                          color: fixed[r][c] ? Colors.black : Colors.blue,
                         ),
                       ),
                     ),
@@ -250,15 +185,41 @@ class _GameScreenState extends State<GameScreen> {
               },
             ),
           ),
-          Wrap(
-            children: List.generate(
-              9,
-              (i) => ElevatedButton(
-                onPressed: () => inputNumber(i + 1),
-                child: Text("${i + 1}"),
+          // Bàn phím số
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ...List.generate(9, (i) => i + 1).map((n) {
+                return ElevatedButton(
+                  onPressed: () {
+                    if (selectedRow != -1 && !fixed[selectedRow][selectedCol]) {
+                      setState(() => board[selectedRow][selectedCol] = n);
+                      checkWin();
+                    }
+                  },
+                  child: Text("$n"),
+                );
+              }).toList(),
+              ElevatedButton(
+                onPressed: () {
+                  if (selectedRow != -1 && !fixed[selectedRow][selectedCol]) {
+                    setState(() => board[selectedRow][selectedCol] = 0);
+                  }
+                },
+                child: const Text("Xóa"),
               ),
-            ),
+            ],
           ),
+          const SizedBox(height: 10),
+          // Nút chơi lại
+          ElevatedButton(
+            onPressed: () {
+              generateGame();
+              startTimer();
+            },
+            child: const Text("Chơi lại"),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
