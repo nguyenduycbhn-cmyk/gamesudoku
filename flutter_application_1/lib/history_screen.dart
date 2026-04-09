@@ -1,36 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/services/api_service.dart';
-import 'dart:convert';
 import 'history_model.dart';
+
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({super.key});
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
 
 class _HistoryScreenState extends State<HistoryScreen> {
   List<GameHistory> history = [];
-  bool isLoading = false; // Biến trạng thái để hiện vòng xoay tải dữ liệu
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    loadFromServer(); // Thay vì load() cũ
+    loadFromServer();
   }
 
-  // Hàm này sẽ gọi API Laravel
-  void load() async {
+  // Hàm gọi API từ Laravel
+  Future<void> loadFromServer() async {
     setState(() {
-      isLoading = true; // Hiện vòng xoay loading
+      isLoading = true;
     });
 
     try {
       ApiService api = ApiService();
-      // Gọi hàm vừa thêm ở Bước 1
+      // Gọi hàm lấy dữ liệu từ Server
       List<dynamic> data = await api.fetchHistory();
 
       setState(() {
         history = data.map((e) => GameHistory.fromJson(e)).toList();
-        isLoading = false; // Tắt vòng xoay
+        isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() {
+        isLoading = false;
+      });
       print("Lỗi tải data: $e");
+
+      // Hiển thị thông báo lỗi cho người dùng
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Không thể tải dữ liệu từ server")),
+        );
+      }
     }
   }
 
@@ -38,27 +53,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Server History"),
+        title: const Text("Server History"),
         actions: [
-          // Nút làm mới dữ liệu từ Database
-          IconButton(onPressed: loadFromServer, icon: Icon(Icons.refresh)),
+          // Nút làm mới dữ liệu
+          IconButton(
+            onPressed: loadFromServer,
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ),
       body: isLoading
-          ? Center(
-              child: CircularProgressIndicator(),
-            ) // Hiện vòng xoay khi đợi API
+          ? const Center(child: CircularProgressIndicator())
           : history.isEmpty
-          ? Center(child: Text("No history on server"))
+          ? const Center(child: Text("No history on server"))
           : ListView.builder(
               itemCount: history.length,
               itemBuilder: (_, i) {
                 final h = history[i];
                 return ListTile(
-                  leading: Icon(Icons.cloud_done, color: Colors.blue),
+                  leading: const Icon(Icons.cloud_done, color: Colors.blue),
                   title: Text("Level: ${h.level}"),
                   subtitle: Text("Time: ${h.time}s"),
-                  trailing: Text(h.date.toString().substring(0, 10)),
+                  // Cắt chuỗi ngày tháng để hiển thị gọn hơn (YYYY-MM-DD)
+                  trailing: Text(
+                    h.date.toString().length > 10
+                        ? h.date.toString().substring(0, 10)
+                        : h.date.toString(),
+                  ),
                 );
               },
             ),

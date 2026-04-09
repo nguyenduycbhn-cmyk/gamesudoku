@@ -24,20 +24,19 @@ class GameController extends Controller
             [9,6,1,5,3,7,2,8,4],[2,8,7,4,1,9,6,3,5],[3,4,5,2,8,6,1,7,9]
         ];
 
-        // Lấy đại diện 1 User để gán vào (Tránh lỗi NOT NULL user_id)
+        // Tìm user đầu tiên để gán vào game
         $user = User::first();
         if (!$user) {
-            return response()->json(['error' => 'Vui lòng tạo user trước bằng /api/register'], 400);
+            return response()->json(['error' => 'Vui lòng chạy /api/register để tạo user trước'], 400);
         }
 
-        // TRUYỀN ĐẦY ĐỦ CÁC CỘT TRONG DATABASE
+        // Đã xóa dòng 'status' để tránh lỗi Database
         $game = Game::create([
             'user_id'      => $user->id,
             'board'        => $board,
             'solution'     => $solution,
             'difficulty'   => 'easy',
-            'is_completed' => false, // Mặc định chưa xong
-            'status'       => 'playing' // Nếu migration có cột status
+            'is_completed' => false,
         ]);
 
         return response()->json([
@@ -46,30 +45,30 @@ class GameController extends Controller
         ]);
     }
 
-    // ✅ Check kết quả
+    // ✅ Kiểm tra kết quả gửi lên từ Client
     public function check(Request $request)
     {
-        // Nhận dữ liệu từ Postman (board và game_id)
+        // Yêu cầu gửi lên: game_id, board (mảng hiện tại), time
         $game = Game::find($request->game_id);
 
         if (!$game) {
-            return response()->json(['error' => 'Game không tồn tại'], 404);
+            return response()->json(['error' => 'Không tìm thấy ván game này'], 404);
         }
 
-        // So sánh mảng (Laravel tự cast JSON sang Array nếu đã cấu chỉnh Model)
+        // So sánh mảng người dùng gửi lên với solution trong DB
         if ($game->solution == $request->board) {
             $game->update([
                 'is_completed' => true,
                 'time' => $request->time
             ]);
 
-            return response()->json(['message' => 'Chính xác 🎉', 'status' => true]);
+            return response()->json(['message' => 'Chính xác! Bạn thắng rồi 🎉', 'status' => true]);
         }
 
-        return response()->json(['message' => 'Sai rồi ❌', 'status' => false]);
+        return response()->json(['message' => 'Vẫn còn chỗ sai, thử lại nhé ❌', 'status' => false]);
     }
 
-    // 📜 Lịch sử
+    // 📜 Xem lại lịch sử các ván game
     public function history()
     {
         return response()->json(Game::latest()->get());
