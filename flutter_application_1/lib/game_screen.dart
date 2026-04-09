@@ -18,17 +18,17 @@ class _GameScreenState extends State<GameScreen> {
   List<List<int>> solution = List.generate(9, (_) => List.filled(9, 0));
   List<List<bool>> fixed = List.generate(9, (_) => List.filled(9, false));
 
-  int selectedRow = -1;
-  int selectedCol = -1;
+  void load() async {
+    ApiService api = ApiService();
+    // Gọi API lấy dữ liệu từ Laravel thay vì SharedPreferences
+    List<dynamic> data = await api.fetchHistory();
 
-  Timer? timer;
-  int seconds = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    generateGame();
-    startTimer();
+    setState(() {
+      history = data
+          .map((e) => GameHistory.fromJson(e)) // Parse trực tiếp từ Map của API
+          .toList();
+      // Không cần dùng .reversed nếu Laravel đã dùng ->orderBy('id', 'desc')
+    });
   }
 
   // ================= TIMER =================
