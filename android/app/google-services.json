@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "275350106040",
+    "project_id": "gamesudoku-925d6",
+    "storage_bucket": "gamesudoku-925d6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:275350106040:android:622fd1eff3cfe050d0694d",
+        "android_client_info": {
+          "package_name": "com.example.gamesudoku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPS_hhE4AfH6deE8AKcNDoRXm1dWpSTMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
