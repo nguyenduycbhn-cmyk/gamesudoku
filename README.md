@@ -36,3 +36,91 @@ The app allows users to play Sudoku, track progress, save game states, and compe
 ---
 
 ## 📂 Project Structure
+lib/
+├── screens/
+├── services/
+├── models/
+├── widgets/
+└── main.dart
+## 🔄 How It Works
+
+1. User logs in using Firebase Authentication  
+2. Game is generated locally  
+3. Game state is saved to Firestore  
+4. Score is submitted after completion  
+5. Leaderboard displays top players  
+
+---
+
+## ☁️ Database (Firestore)
+users/
+game_states/
+scores/
+game_history/
+
+---
+
+## ⚙️ Getting Started
+
+### 1. Clone the repository
+
+---
+
+## ⚙️ Getting Started
+
+### 1. Clone the repository
+
+https://github.com/nguyenduycbhn-cmyk/gamesudoku-git
+
+### 2. Install dependencies
+
+
+flutter pub get
+
+
+### 3. Setup Firebase
+
+- Create a Firebase project
+- Add Android/iOS app
+- Download config files:
+  - `google-services.json`
+  - `GoogleService-Info.plist`
+- Enable:
+  - Authentication (Email/Password)
+  - Firestore Database
+
+---
+
+### 4. Run the app
+
+
+flutter run
+
+
+---
+
+## 📊 Highlights
+
+- Clean architecture (UI - Service - Data)
+- Firebase integration (Auth + Firestore)
+- Scalable backend design
+- Real-time data handling
+
+---
+
+## 🧠 Future Improvements
+
+- Multiplayer mode
+- AI Sudoku solver
+- Offline support
+- UI/UX enhancements
+
+---
+
+## 👨‍💻 Author
+
+**Duy Nguyễn**  
+Flutter Developer
+
+---
+
