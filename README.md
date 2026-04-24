@@ -1,17 +1,38 @@
-# gamesudoku
+# 🧩 Game Sudoku
 
-A new Flutter project.
+A Flutter-based Sudoku mobile application integrated with Firebase for authentication and real-time data storage.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 📌 Overview
 
-A few resources to get you started if this is your first Flutter project:
+This project is a complete Sudoku game built using Flutter, demonstrating full-stack mobile development with Firebase backend services.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The app allows users to play Sudoku, track progress, save game states, and compete on leaderboards.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 🚀 Features
+
+- 🔐 User Authentication (Register / Login)
+- 🎮 Sudoku gameplay (Easy / Hard modes)
+- ⏱️ Real-time game timer
+- 💾 Save & resume game state
+- 🏆 Leaderboard (Top fastest players)
+- 📜 Game history tracking
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- Flutter (Dart)
+
+### Backend
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Cloud Functions (optional)
+
+---
+
+## 📂 Project Structure
