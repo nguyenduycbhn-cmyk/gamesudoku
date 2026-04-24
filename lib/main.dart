@@ -114,8 +114,7 @@ class _RegisterState extends State<RegisterScreen> {
         password: pass.text.trim(),
       );
       await user.user!.updateDisplayName(name.text.trim());
-      if (!mounted) return;
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       show("Lỗi đăng ký");
     }
@@ -149,16 +148,15 @@ class _RegisterState extends State<RegisterScreen> {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  // Widget hiển thị 3 nút chế độ trên cùng 1 hàng
   Widget modeBtn(BuildContext context, String text, int level, Color color) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: color.withValues(alpha: 0.15), // Nền nhạt
-            foregroundColor: color, // Màu chữ
-            elevation: 0, // Bỏ đổ bóng cho giống thiết kế phẳng
+            backgroundColor: color.withValues(alpha: 0.15),
+            foregroundColor: color,
+            elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
@@ -178,7 +176,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Widget custom cho các nút bên dưới
   Widget menuBtn({required IconData icon, required String text, required VoidCallback onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -189,20 +186,20 @@ class HomeScreen extends StatelessWidget {
           width: double.infinity,
           height: 60,
           decoration: BoxDecoration(
-            color: const Color(0xFFF3EDF7), // Màu nền tím nhạt giống ảnh
+            color: const Color(0xFFF3EDF7),
             borderRadius: BorderRadius.circular(30),
             border: Border.all(color: const Color(0xFFE6E0E9), width: 1.5),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color(0xFF6750A4), size: 20), // Icon tím
+              Icon(icon, color: const Color(0xFF6750A4), size: 20),
               const SizedBox(width: 8),
               Text(
                 text,
                 style: const TextStyle(
                   fontSize: 16,
-                  color: Color(0xFF6750A4), // Chữ tím
+                  color: Color(0xFF6750A4),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -216,7 +213,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFEF7FF), // Màu nền app hơi ám hồng nhẹ
+      backgroundColor: const Color(0xFFFEF7FF),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -235,7 +232,6 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
           children: [
-            // --- KHU VỰC CHỌN CHẾ ĐỘ ---
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -272,17 +268,7 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 10),
-
-            // --- CÁC NÚT MENU CÒN LẠI ---
-            menuBtn(
-              icon: Icons.timer_outlined,
-              text: "Thời gian",
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tính năng đang phát triển")));
-              },
-            ),
             menuBtn(
               icon: Icons.emoji_events_outlined,
               text: "Bảng xếp hạng",
@@ -294,9 +280,10 @@ class HomeScreen extends StatelessWidget {
             menuBtn(
               icon: Icons.history_edu,
               text: "Lịch sử",
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tính năng đang phát triển")));
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+              ),
             ),
           ],
         ),
@@ -305,10 +292,53 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+// ================= HISTORY =================
+
+class HistoryScreen extends StatelessWidget {
+  const HistoryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Lịch sử chơi")),
+      body: StreamBuilder(
+        stream: FirebaseFirestore.instance
+            .collection("history")
+            .orderBy("created", descending: true)
+            .snapshots(),
+        builder: (_, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final docs = snap.data!.docs;
+          if (docs.isEmpty) return const Center(child: Text("Chưa có lịch sử"));
+
+          return ListView.builder(
+            itemCount: docs.length,
+            itemBuilder: (_, i) {
+              final d = docs[i];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: ListTile(
+                  leading: const Icon(Icons.history),
+                  title: Text(d["name"] ?? "Anonymous"),
+                  subtitle: Text("Chế độ: ${d["level"] ?? "Không rõ"}"),
+                  trailing: Text(
+                    "${d["time"]}s",
+                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ================= GAME =================
 
 class GameScreen extends StatefulWidget {
-  final int level; // số ô trống
+  final int level;
   const GameScreen({super.key, required this.level});
 
   @override
@@ -318,7 +348,6 @@ class GameScreen extends StatefulWidget {
 class _GameState extends State<GameScreen> {
   List<List<int>> board = [];
   List<List<int>> solution = [];
-
   int row = -1, col = -1;
   int time = 0;
   Timer? timer;
@@ -326,14 +355,12 @@ class _GameState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    generate(); // Tạo game mới (phòng trường hợp không có save file)
-    loadGame(); // 🔥 LOAD GAME KHI MỞ
-
+    generate();
+    loadGame();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => time++);
-      // Auto save mỗi 5 giây để tránh quá tải Firebase Write (vượt giới hạn miễn phí)
-      if (time % 5 == 0) {
-        saveGame();
+      if (mounted) {
+        setState(() => time++);
+        if (time % 5 == 0) saveGame();
       }
     });
   }
@@ -344,51 +371,28 @@ class _GameState extends State<GameScreen> {
     super.dispose();
   }
 
-  // =========================
-  // 💾 SAVE GAME
-  // =========================
   Future<void> saveGame() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    await FirebaseFirestore.instance
-        .collection("game_states")
-        .doc(user.uid)
-        .set({
-      "grid": board.map((r) => r.toList()).toList(), // Lưu bảng đang chơi
-      "solution": solution.map((r) => r.toList()).toList(), // Lưu đáp án
+    await FirebaseFirestore.instance.collection("game_states").doc(user.uid).set({
+      "grid": board,
+      "solution": solution,
       "time": time,
       "level": widget.level,
     });
   }
 
-  // =========================
-  // 📥 LOAD GAME
-  // =========================
   Future<void> loadGame() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    final doc = await FirebaseFirestore.instance
-        .collection("game_states")
-        .doc(user.uid)
-        .get();
-
+    final doc = await FirebaseFirestore.instance.collection("game_states").doc(user.uid).get();
     if (!doc.exists) return;
-
     final data = doc.data()!;
-
-    // Nếu game đang lưu có mức độ giống mức độ người chơi vừa chọn thì mới load
     if (data["level"] == widget.level) {
       setState(() {
         time = data["time"] ?? 0;
-        List gridData = data["grid"];
-        List solData = data["solution"];
-
-        for (int i = 0; i < 9; i++) {
-          board[i] = List<int>.from(gridData[i]);
-          solution[i] = List<int>.from(solData[i]);
-        }
+        board = (data["grid"] as List).map((r) => List<int>.from(r)).toList();
+        solution = (data["solution"] as List).map((r) => List<int>.from(r)).toList();
       });
     }
   }
@@ -396,13 +400,10 @@ class _GameState extends State<GameScreen> {
   void generate() {
     solution = generateSolved();
     board = solution.map((r) => [...r]).toList();
-
     final rand = Random();
     int remove = widget.level;
-
     while (remove > 0) {
-      int r = rand.nextInt(9);
-      int c = rand.nextInt(9);
+      int r = rand.nextInt(9), c = rand.nextInt(9);
       if (board[r][c] != 0) {
         board[r][c] = 0;
         remove--;
@@ -412,14 +413,10 @@ class _GameState extends State<GameScreen> {
 
   List<List<int>> generateSolved() {
     List<List<int>> grid = List.generate(9, (_) => List.filled(9, 0));
-
     bool solve(int r, int c) {
       if (r == 9) return true;
-      int nr = c == 8 ? r + 1 : r;
-      int nc = (c + 1) % 9;
-
+      int nr = c == 8 ? r + 1 : r, nc = (c + 1) % 9;
       List nums = List.generate(9, (i) => i + 1)..shuffle();
-
       for (int n in nums) {
         if (isValid(grid, r, c, n)) {
           grid[r][c] = n;
@@ -429,31 +426,37 @@ class _GameState extends State<GameScreen> {
       }
       return false;
     }
-
     solve(0, 0);
     return grid;
   }
 
   bool isValid(List<List<int>> g, int r, int c, int n) {
     for (int i = 0; i < 9; i++) {
-      if (g[r][i] == n || g[i][c] == n) return false;
-    }
-    int br = (r ~/ 3) * 3, bc = (c ~/ 3) * 3;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        if (g[br + i][bc + j] == n) return false;
+      if (g[r][i] == n || g[i][c] == n) {
+        return false;
       }
     }
+
+    int br = (r ~/ 3) * 3, bc = (c ~/ 3) * 3;
+
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        if (g[br + i][bc + j] == n) {
+          return false;
+        }
+      }
+    }
+
     return true;
   }
 
-  bool wrong(int r, int c) =>
-      board[r][c] != 0 && board[r][c] != solution[r][c];
+
+  bool wrong(int r, int c) => board[r][c] != 0 && board[r][c] != solution[r][c];
 
   void input(int n) {
     if (row == -1) return;
     setState(() => board[row][col] = n);
-    saveGame(); // Lưu ngay khi người dùng điền số
+    saveGame();
   }
 
   void hint() {
@@ -461,97 +464,56 @@ class _GameState extends State<GameScreen> {
     setState(() => board[row][col] = solution[row][col]);
   }
 
-  // =========================
-  // ✅ CHECK WIN VÀ SAVE LEADERBOARD
-  // =========================
   Future<void> submit() async {
     bool correct = true;
-
     for (int i = 0; i < 9; i++) {
       for (int j = 0; j < 9; j++) {
-        if (board[i][j] != solution[i][j]) {
-          correct = false;
-        }
+        if (board[i][j] != solution[i][j]) correct = false;
       }
     }
-
     if (correct) {
       timer?.cancel();
-
       final user = FirebaseAuth.instance.currentUser;
-
-      // Lưu vào Leaderboard
+      String levelText = widget.level == 40 ? "Dễ" : widget.level == 50 ? "Trung bình" : "Khó";
       await FirebaseFirestore.instance.collection("history").add({
         "name": user?.displayName ?? "Anonymous",
         "time": time,
-        "created": DateTime.now()
+        "level": levelText,
       });
-
-      // 🧹 Xoá save khi thắng
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection("game_states")
-            .doc(user.uid)
-            .delete();
+      if (user != null) await FirebaseFirestore.instance.collection("game_states").doc(user.uid).delete();
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            title: const Text("🎉 Thắng!"),
+            content: Text("Time: $time s"),
+            actions: [TextButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text("OK"))],
+          ),
+        );
       }
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          title: const Text("🎉 Bạn đã thắng!"),
-          content: Text("Thời gian: $time giây"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Đóng Dialog
-                Navigator.pop(context); // Quay về Home
-              },
-              child: const Text("OK"),
-            )
-          ],
-        ),
-      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Chưa đúng hoặc chưa điền đủ, thử lại!")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sai rồi!")));
     }
   }
 
-  // =========================
-  // UI (GIỮ NGUYÊN GRID CỦA BẠN)
-  // =========================
   Widget cell(int r, int c) {
     bool selected = r == row && c == col;
-
     return GestureDetector(
-      onTap: () => setState(() {
-        if (board[r][c] == 0 || wrong(r, c)) { // Cho phép sửa nếu ô trống hoặc bị sai
-          row = r;
-          col = c;
-        }
-      }),
+      onTap: () => setState(() { row = r; col = c; }),
       child: Container(
-        margin: const EdgeInsets.all(1),
-        width: 38,
-        height: 38,
+        width: 40, height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected
-              ? Colors.blue.shade100
-              : wrong(r, c)
-              ? Colors.red.shade200
-              : Colors.white,
-          border: Border.all(),
-        ),
-        child: Text(
-          board[r][c] == 0 ? "" : board[r][c].toString(),
-          style: TextStyle(
-              fontSize: 18,
-              fontWeight: wrong(r, c) || (board[r][c] != 0 && board[r][c] == solution[r][c] && !selected) ? FontWeight.normal : FontWeight.bold
+          color: selected ? Colors.blue.shade100 : wrong(r, c) ? Colors.red.shade200 : Colors.white,
+          border: Border(
+            top: BorderSide(width: r % 3 == 0 ? 2 : 0.5),
+            left: BorderSide(width: c % 3 == 0 ? 2 : 0.5),
+            right: BorderSide(width: (c + 1) % 3 == 0 ? 2 : 0.5),
+            bottom: BorderSide(width: (r + 1) % 3 == 0 ? 2 : 0.5),
           ),
         ),
+        child: Text(board[r][c] == 0 ? "" : board[r][c].toString(), style: const TextStyle(fontSize: 18)),
       ),
     );
   }
@@ -560,42 +522,43 @@ class _GameState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("⏱ $time s")),
-      body: Column(
-        children: [
-          ...List.generate(9, (i) => Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(9, (j) => cell(i, j)),
-          )),
-          const SizedBox(height: 15),
-          Wrap(
-            children: List.generate(9, (i) => GestureDetector(
-              onTap: () => input(i + 1),
-              child: Container(
-                margin: const EdgeInsets.all(5),
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(5)
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(2),
+              color: Colors.black,
+              child: Column(
+                children: List.generate(9, (i) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(9, (j) => cell(i, j)),
+                )),
+              ),
+            ),
+            Wrap(
+              children: List.generate(9, (i) => GestureDetector(
+                onTap: () => input(i + 1),
+                child: Container(
+                  margin: const EdgeInsets.all(5),
+                  width: 40, height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(5)),
+                  child: Text("${i + 1}", style: const TextStyle(fontSize: 18)),
                 ),
-                child: Text("${i + 1}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-            )),
-          ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(onPressed: hint, child: const Text("Hint")),
-              ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                  onPressed: submit,
-                  child: const Text("Check")
-              ),
-            ],
-          )
-        ],
+              )),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(onPressed: hint, child: const Text("Hint")),
+                const SizedBox(width: 20),
+                ElevatedButton(onPressed: submit, child: const Text("Check")),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
@@ -603,35 +566,114 @@ class _GameState extends State<GameScreen> {
 
 // ================= LEADERBOARD =================
 
-class Leaderboard extends StatelessWidget {
+class Leaderboard extends StatefulWidget {
   const Leaderboard({super.key});
+
+  @override
+  State<Leaderboard> createState() => _LeaderboardState();
+}
+
+class _LeaderboardState extends State<Leaderboard> {
+  String selectedLevel = "Dễ";
+
+  Widget filterBtn(String text) {
+    bool selected = selectedLevel == text;
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: selected ? Colors.blue : Colors.grey.shade300,
+            foregroundColor: selected ? Colors.white : Colors.black,
+          ),
+          onPressed: () {
+            setState(() => selectedLevel = text);
+          },
+          child: Text(text),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Leaderboard")),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection("history")
-            .orderBy("time")
-            .snapshots(),
-        builder: (_, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snap.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("Chưa có ai hoàn thành"));
+      body: Column(
+        children: [
+          const SizedBox(height: 10),
 
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (_, i) {
-              final d = docs[i];
-              return ListTile(
-                leading: Text("#${i + 1}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                title: Text(d["name"] ?? "Anonymous"),
-                trailing: Text("${d["time"]}s", style: const TextStyle(fontSize: 16, color: Colors.green)),
-              );
-            },
-          );
-        },
+          // FILTER
+          Row(
+            children: [
+              filterBtn("Dễ"),
+              filterBtn("Trung bình"),
+              filterBtn("Khó"),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // REALTIME DATA
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection("history")
+                  .orderBy("time")
+                  .snapshots(),
+              builder: (_, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snap.hasData || snap.data!.docs.isEmpty) {
+                  return const Center(child: Text("Chưa có dữ liệu"));
+                }
+
+                final docs = snap.data!.docs;
+
+                // ✅ lọc theo level
+                final filtered = docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data["level"] == selectedLevel;
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return const Center(child: Text("Không có dữ liệu phù hợp"));
+                }
+
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) {
+                    final raw = filtered[i].data() as Map<String, dynamic>;
+
+                    String name = raw["name"] ?? "Anonymous";
+                    String level = raw["level"] ?? "Không rõ";
+                    int time = raw["time"] ?? 0;
+
+                    return ListTile(
+                      leading: Text(
+                        "#${i + 1}",
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      title: Text(name),
+                      subtitle: Text("Chế độ: $level"),
+                      trailing: Text(
+                        "${time}s",
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          )
+        ],
       ),
     );
   }
