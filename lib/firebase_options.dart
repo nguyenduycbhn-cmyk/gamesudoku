@@ -61,7 +61,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCPS_hhE4AfH6deE8AKcNDoRXm1dWpSTMA',
-    appId: '1:275350106040:android:622fd1eff3cfe050d0694d',
+    appId: '1:275350106040:android:9077f37afabcf23fd0694d',
     messagingSenderId: '275350106040',
     projectId: 'gamesudoku-925d6',
     storageBucket: 'gamesudoku-925d6.firebasestorage.app',
