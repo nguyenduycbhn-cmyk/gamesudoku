@@ -11,6 +11,8 @@ import 'firebase_options.dart';
 import 'friends_screen.dart';
 import 'invite_screen.dart';
 import 'search_friend_screen.dart';
+import 'create_room.dart';
+import 'join_room.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -343,25 +345,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void logout() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(widget.isOffline ? "Thoát" : "Đăng xuất"),
-        content: Text(widget.isOffline ? "Bạn muốn quay lại màn hình chính?" : "Bạn có chắc chắn muốn thoát không?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Hủy")),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              if (widget.isOffline) {
-                Navigator.pop(context);
-              } else {
-                await setOffline();
-                await FirebaseAuth.instance.signOut();
-              }
-            },
-            child: Text(widget.isOffline ? "Thoát" : "Đăng xuất", style: const TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+      builder: (context) {
+        final navigator = Navigator.of(context);
+        return AlertDialog(
+          title: Text(widget.isOffline ? "Thoát" : "Đăng xuất"),
+          content: Text(widget.isOffline ? "Bạn muốn quay lại màn hình chính?" : "Bạn có chắc chắn muốn thoát không?"),
+          actions: [
+            TextButton(onPressed: () => navigator.pop(), child: const Text("Hủy")),
+            TextButton(
+              onPressed: () async {
+                navigator.pop(); // Đóng hộp thoại
+                if (widget.isOffline) {
+                  navigator.pop(); // Quay về LandingScreen
+                } else {
+                  await setOffline();
+                  // Quay về LandingScreen TRƯỚC khi signOut để tránh lỗi mất context
+                  navigator.pop(); 
+                  await FirebaseAuth.instance.signOut();
+                }
+              },
+              child: Text(widget.isOffline ? "Thoát" : "Đăng xuất", style: const TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -469,6 +476,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -501,6 +509,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 30),
               if (!widget.isOffline) ...[
+                const Text("Chơi cùng bạn bè", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: menuBtn(
+                        icon: Icons.add_box_outlined,
+                        text: "Tạo phòng",
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateRoom(userId: user?.uid ?? ""))),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: menuBtn(
+                        icon: Icons.login_rounded,
+                        text: "Vào phòng",
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => JoinRoom(userId: user?.uid ?? ""))),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 const Text("Khám phá", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 10),
                 menuBtn(

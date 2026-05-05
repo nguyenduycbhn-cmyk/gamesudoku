@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'multiplayer_screen.dart';
 
 class JoinRoom extends StatefulWidget {
   final String userId;
@@ -11,111 +12,77 @@ class JoinRoom extends StatefulWidget {
 
 class _JoinRoomState extends State<JoinRoom> {
   final TextEditingController controller = TextEditingController();
+  bool isLoading = false;
 
   Future<void> joinRoom() async {
     final roomId = controller.text.trim();
+    if (roomId.isEmpty) return;
 
-    await FirebaseFirestore.instance
-        .collection('rooms')
-        .doc(roomId)
-        .update({
-      'guestId': widget.userId,
-      'status': 'playing',
-      'players.${widget.userId}': {
-        'progress': 0,
-        'time': 0,
+    setState(() => isLoading = true);
+
+    try {
+      final roomDoc = await FirebaseFirestore.instance.collection('rooms').doc(roomId).get();
+      
+      if (!roomDoc.exists) {
+        if (mounted) {
+          setState(() => isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mã phòng không tồn tại!")));
+        }
+        return;
       }
-    });
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => GameScreen(
-          roomId: roomId,
-          userId: widget.userId,
-        ),
-      ),
-    );
+      // Thêm người chơi vào danh sách players và đổi trạng thái sang 'playing'
+      await FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
+        'guestId': widget.userId,
+        'status': 'playing',
+        'players': FieldValue.arrayUnion([widget.userId]),
+      });
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => MultiplayerScreen(roomId: roomId)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi: $e")));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Join Room")),
+      appBar: AppBar(title: const Text("Vào phòng chơi")),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+            const Icon(Icons.vpn_key_outlined, size: 80, color: Colors.blue),
+            const SizedBox(height: 20),
             TextField(
               controller: controller,
+              keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "Enter Room ID",
+                labelText: "Nhập mã phòng 6 số",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.numbers),
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: joinRoom,
-              child: const Text("Join"),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: isLoading ? null : joinRoom,
+                child: isLoading ? const CircularProgressIndicator() : const Text("THAM GIA NGAY"),
+              ),
             ),
           ],
         ),
       ),
     );
-  }
-}
-
-class GameScreen extends StatelessWidget {
-  final String roomId;
-  final String userId;
-
-  const GameScreen({
-    super.key,
-    required this.roomId,
-    required this.userId,
-  });
-
-  Stream<DocumentSnapshot> listenRoom() {
-    return FirebaseFirestore.instance
-        .collection('rooms')
-        .doc(roomId)
-        .snapshots();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Game")),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: listenRoom(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final data = snapshot.data!;
-          final room = data.data() as Map<String, dynamic>;
-          final players = room['players'];
-
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text("Room: $roomId"),
-              const SizedBox(height: 20),
-
-              Text("You: ${players[userId]['progress']}%"),
-              const SizedBox(height: 10),
-
-              Text("Opponent: ${getOpponent(players)['progress']}%"),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Map<String, dynamic> getOpponent(Map players) {
-    return players.entries
-        .firstWhere((e) => e.key != userId)
-        .value;
   }
 }
