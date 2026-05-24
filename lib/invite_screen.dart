@@ -1,62 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
-import 'game_room_screen.dart';
+import 'friends_service.dart';
 
 class InviteScreen extends StatelessWidget {
   const InviteScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser!;
+    final service = FriendService();
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Lời mời chơi")),
+      appBar: AppBar(
+        title: const Text("Lời mời kết bạn", style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+      ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection("rooms")
-            .where("guest", isEqualTo: user.uid)
-            .where("status", isEqualTo: "playing")
-            .snapshots(),
+        stream: service.getIncomingRequests(),
         builder: (context, snap) {
-          if (!snap.hasData) {
+          if (snap.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final rooms = snap.data!.docs;
-
-          if (rooms.isEmpty) {
+          if (!snap.hasData || snap.data!.docs.isEmpty) {
             return const Center(
-              child: Text("Không có lời mời nào"),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.mail_outline, size: 80, color: Colors.grey),
+                  SizedBox(height: 10),
+                  Text("Không có lời mời kết bạn nào", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             );
           }
 
-          return ListView.builder(
-            itemCount: rooms.length,
-            itemBuilder: (context, i) {
-              final roomId = rooms[i].id;
-              final data = rooms[i].data() as Map<String, dynamic>;
+          final requests = snap.data!.docs;
 
-              return Card(
-                margin: const EdgeInsets.all(10),
-                child: ListTile(
-                  leading: const Icon(Icons.sports_esports),
-                  title: const Text("Bạn được mời chơi Sudoku"),
-                  subtitle: Text("Room: $roomId"),
-                  trailing: ElevatedButton(
-                    child: const Text("Vào chơi"),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              GameRoomScreen(roomId: roomId),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+          return ListView.builder(
+            itemCount: requests.length,
+            padding: const EdgeInsets.all(10),
+            itemBuilder: (context, i) {
+              final docId = requests[i].id;
+              final data = requests[i].data() as Map<String, dynamic>;
+              final fromUid = data["from"];
+
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection("users").doc(fromUid).get(),
+                builder: (context, userSnap) {
+                  if (!userSnap.hasData) return const SizedBox();
+                  final userData = userSnap.data!.data() as Map<String, dynamic>?;
+                  final name = userData?["name"] ?? "Người dùng Sudoku";
+
+                  return Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    child: ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.person)),
+                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text("Muốn kết bạn với bạn"),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.check_circle, color: Colors.green),
+                            onPressed: () => service.accept(docId),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.cancel, color: Colors.red),
+                            onPressed: () => service.reject(docId),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               );
             },
           );

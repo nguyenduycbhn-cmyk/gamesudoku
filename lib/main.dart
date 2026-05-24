@@ -360,7 +360,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   navigator.pop(); // Quay về LandingScreen
                 } else {
                   await setOffline();
-                  // Quay về LandingScreen TRƯỚC khi signOut để tránh lỗi mất context
                   navigator.pop(); 
                   await FirebaseAuth.instance.signOut();
                 }
@@ -582,26 +581,48 @@ class HistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text("Lịch sử chơi")),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection("history").orderBy("created", descending: true).snapshots(),
-        builder: (_, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snap.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("Chưa có lịch sử"));
+      appBar: AppBar(title: const Text("Lịch sử chơi của tôi")),
+      body: user == null 
+        ? const Center(child: Text("Cần đăng nhập"))
+        : StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection("history")
+            .where("uid", isEqualTo: user.uid)
+            .snapshots(),
+        builder: (context, snap) {
+          if (snap.hasError) return Center(child: Text("Lỗi: ${snap.error}"));
+          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          
+          final docs = snap.data?.docs ?? [];
+          if (docs.isEmpty) return const Center(child: Text("Chưa có lịch sử đấu"));
+
+          // Sắp xếp thủ công trong code để tránh lỗi Missing Index
+          List<QueryDocumentSnapshot> sortedDocs = List.from(docs);
+          sortedDocs.sort((a, b) {
+            final dataA = a.data() as Map<String, dynamic>;
+            final dataB = b.data() as Map<String, dynamic>;
+            final t1 = dataA["created"] as Timestamp?;
+            final t2 = dataB["created"] as Timestamp?;
+            if (t1 == null) return 1;
+            if (t2 == null) return -1;
+            return t2.compareTo(t1); // Mới nhất lên đầu
+          });
 
           return ListView.builder(
-            itemCount: docs.length,
+            itemCount: sortedDocs.length,
             itemBuilder: (_, i) {
-              final d = docs[i];
+              final d = sortedDocs[i].data() as Map<String, dynamic>;
+              final date = d["created"] != null ? (d["created"] as Timestamp).toDate() : DateTime.now();
+              
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
-                  leading: const Icon(Icons.history),
-                  title: Text(d["name"] ?? "Anonymous"),
-                  subtitle: Text("Chế độ: ${d["level"] ?? "Không rõ"}"),
-                  trailing: Text("${d["time"]}s", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                  leading: const CircleAvatar(child: Icon(Icons.history)),
+                  title: Text("Độ khó: ${d["level"] ?? "N/A"}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text("Ngày: ${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}"),
+                  trailing: Text("${d["time"]}s", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
               );
             },
@@ -748,36 +769,82 @@ class _GameState extends State<GameScreen> {
 
   Future<void> submit() async {
     bool correct = true;
-    for (int i = 0; i < 9; i++) for (int j = 0; j < 9; j++) if (board[i][j] != solution[i][j]) correct = false;
+    for (int i = 0; i < 9; i++) {
+      for (int j = 0; j < 9; j++) {
+        if (board[i][j] != solution[i][j]) {
+          correct = false;
+          break;
+        }
+      }
+    }
+    
     if (correct) {
       timer?.cancel();
-      if (widget.isOffline) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove("offline_game_${widget.level}");
-      } else {
-        final user = FirebaseAuth.instance.currentUser;
-        String levelText = widget.level == 40 ? "Dễ" : widget.level == 50 ? "Trung bình" : "Khó";
-        await FirebaseFirestore.instance.collection("history").add({
-          "name": user?.displayName ?? "Anonymous",
-          "time": time,
-          "level": levelText,
-          "created": FieldValue.serverTimestamp(),
-        });
-        if (user != null) await FirebaseFirestore.instance.collection("game_states").doc(user.uid).delete();
+      try {
+        if (widget.isOffline) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove("offline_game_${widget.level}");
+        } else {
+          final user = FirebaseAuth.instance.currentUser;
+          String levelText = widget.level == 40 ? "Dễ" : widget.level == 50 ? "Trung bình" : "Khó";
+          
+          await FirebaseFirestore.instance.collection("history").add({
+            "uid": user?.uid,
+            "name": user?.displayName ?? "Người chơi ẩn danh",
+            "time": time,
+            "level": levelText,
+            "created": FieldValue.serverTimestamp(),
+          });
+          
+          if (user != null) {
+            await FirebaseFirestore.instance.collection("game_states").doc(user.uid).delete();
+          }
+        }
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text("🎉 CHÚC MỪNG!"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.emoji_events, color: Colors.amber, size: 60),
+                  const SizedBox(height: 10),
+                  const Text("Bạn đã thắng bàn Sudoku này!", textAlign: TextAlign.center),
+                  const SizedBox(height: 5),
+                  Text("Thời gian: $time giây", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () { 
+                    Navigator.pop(ctx); 
+                    Navigator.pop(context); 
+                  }, 
+                  child: const Text("OK")
+                )
+              ],
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Lỗi lưu kết quả: $e")),
+          );
+        }
       }
+    } else {
       if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            title: const Text("🎉 Thắng!"),
-            content: Text("Time: $time s"),
-            actions: [TextButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text("OK"))],
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Bàn cờ chưa chính xác hoặc chưa hoàn thành!"),
+            backgroundColor: Colors.redAccent,
           ),
         );
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sai rồi!")));
     }
   }
 
