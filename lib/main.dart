@@ -13,6 +13,7 @@ import 'invite_screen.dart';
 import 'search_friend_screen.dart';
 import 'create_room.dart';
 import 'join_room.dart';
+import 'leaderboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -503,7 +504,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Row(
                 children: [
                   modeBtn("Dễ", 40, Colors.green.shade400, Icons.sentiment_satisfied_alt),
-                  modeBtn("Vừa", 50, Colors.orange.shade400, Icons.sentiment_neutral),
+                  modeBtn("Trung bình", 50, Colors.orange.shade400, Icons.sentiment_neutral),
                   modeBtn("Khó", 60, Colors.red.shade400, Icons.sentiment_very_dissatisfied),
                 ],
               ),
@@ -536,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 menuBtn(
                   icon: Icons.emoji_events_outlined,
                   text: "Bảng xếp hạng",
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Leaderboard())),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
                 ),
                 menuBtn(
                   icon: Icons.history_rounded,
@@ -842,89 +843,6 @@ class _GameState extends State<GameScreen> {
             )
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ================= LEADERBOARD =================
-
-class Leaderboard extends StatefulWidget {
-  const Leaderboard({super.key});
-
-  @override
-  State<Leaderboard> createState() => _LeaderboardState();
-}
-
-class _LeaderboardState extends State<Leaderboard> {
-  String selectedLevel = "Dễ";
-
-  Widget filterBtn(String text) {
-    bool selected = selectedLevel == text;
-
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: selected ? Colors.blue : Colors.grey.shade300,
-            foregroundColor: selected ? Colors.white : Colors.black,
-          ),
-          onPressed: () {
-            setState(() => selectedLevel = text);
-          },
-          child: Text(text),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Leaderboard")),
-      body: Column(
-        children: [
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              filterBtn("Dễ"),
-              filterBtn("Trung bình"),
-              filterBtn("Khó"),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection("history").orderBy("time").snapshots(),
-              builder: (_, snap) {
-                if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                if (!snap.hasData || snap.data!.docs.isEmpty) return const Center(child: Text("Chưa có dữ liệu"));
-
-                final docs = snap.data!.docs;
-                final filtered = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  return data["level"] == selectedLevel;
-                }).toList();
-
-                if (filtered.isEmpty) return const Center(child: Text("Không có dữ liệu phù hợp"));
-
-                return ListView.builder(
-                  itemCount: filtered.length,
-                  itemBuilder: (_, i) {
-                    final raw = filtered[i].data() as Map<String, dynamic>;
-                    return ListTile(
-                      leading: Text("#${i + 1}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      title: Text(raw["name"] ?? "Anonymous"),
-                      subtitle: Text("Chế độ: ${raw["level"]}"),
-                      trailing: Text("${raw["time"]}s", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                    );
-                  },
-                );
-              },
-            ),
-          )
-        ],
       ),
     );
   }

@@ -5,14 +5,33 @@ import 'package:firebase_auth/firebase_auth.dart';
 class MultiplayerService {
   final db = FirebaseFirestore.instance;
 
-  // Lấy user hiện tại một cách an toàn
   User? get currentUser => FirebaseAuth.instance.currentUser;
+
+  // Chuyển mảng 2 chiều thành List<Map> để Firestore lưu được
+  List<Map<String, dynamic>> convertBoard(List<List<int>> board) {
+    return board.asMap().entries.map((row) => {
+      "row": row.key,
+      "values": row.value,
+    }).toList();
+  }
+
+  // Chuyển từ List<Map> của Firestore về lại mảng 2 chiều
+  List<List<int>> revertBoard(dynamic data) {
+    if (data == null || data is! List) {
+      return List.generate(9, (_) => List.filled(9, 0));
+    }
+    try {
+      return data.map((e) => List<int>.from(e["values"])).toList();
+    } catch (e) {
+      print("Lỗi chuyển đổi board: $e");
+      return List.generate(9, (_) => List.filled(9, 0));
+    }
+  }
 
   // ================= SUDOKU GENERATOR =================
 
   List<List<int>> generateSolvedBoard() {
     List<List<int>> grid = List.generate(9, (_) => List.filled(9, 0));
-
     bool solve(int r, int c) {
       if (r == 9) return true;
       int nr = c == 8 ? r + 1 : r;
@@ -27,22 +46,14 @@ class MultiplayerService {
       }
       return false;
     }
-
     solve(0, 0);
     return grid;
   }
 
   bool isValid(List<List<int>> g, int r, int c, int n) {
-    for (int i = 0; i < 9; i++) {
-      if (g[r][i] == n || g[i][c] == n) return false;
-    }
-    int br = (r ~/ 3) * 3;
-    int bc = (c ~/ 3) * 3;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        if (g[br + i][bc + j] == n) return false;
-      }
-    }
+    for (int i = 0; i < 9; i++) if (g[r][i] == n || g[i][c] == n) return false;
+    int br = (r ~/ 3) * 3, bc = (c ~/ 3) * 3;
+    for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) if (g[br + i][bc + j] == n) return false;
     return true;
   }
 
@@ -51,8 +62,7 @@ class MultiplayerService {
     int remove = 45; 
     Random rand = Random();
     while (remove > 0) {
-      int r = rand.nextInt(9);
-      int c = rand.nextInt(9);
+      int r = rand.nextInt(9), c = rand.nextInt(9);
       if (board[r][c] != 0) {
         board[r][c] = 0;
         remove--;
@@ -69,15 +79,7 @@ class MultiplayerService {
 
   Future<void> updateBoard(String roomId, List<List<int>> board) async {
     await db.collection("rooms").doc(roomId).update({
-      "board": board,
-    });
-  }
-
-  Future<void> setWinner(String roomId) async {
-    final user = currentUser;
-    if (user == null) return;
-    await db.collection("rooms").doc(roomId).update({
-      "winner": user.uid,
+      "board": convertBoard(board),
     });
   }
 }
